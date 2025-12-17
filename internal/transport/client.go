@@ -219,3 +219,26 @@ func (c *Client) TestConnection(ctx context.Context) error {
 	}
 	return nil
 }
+
+// Upload uploads data with a specific content type
+func (c *Client) Upload(ctx context.Context, url string, contentType string, data io.Reader) error {
+	req, err := http.NewRequestWithContext(ctx, "PUT", url, data)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("upload failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}

@@ -1,15 +1,25 @@
-# JTNT RMM Agent - Phase 1
+# JTNT RMM Agent
 
-A secure, cross-platform Remote Monitoring and Management (RMM) agent written in Go. This is Phase 1 implementation focusing on core enrollment, mTLS transport, and basic agent lifecycle.
+A secure, cross-platform Remote Monitoring and Management (RMM) agent written in Go.
 
 ## Features
 
-- **Secure Enrollment**: One-time token-based enrollment with Ed25519 keypair generation
-- **mTLS Transport**: All communication secured with mutual TLS authentication
-- **Cross-Platform**: Supports Windows, macOS (Intel & Apple Silicon), and Linux
-- **Heartbeat Monitoring**: Periodic system health reporting
-- **Structured Logging**: JSON-formatted logs for easy parsing
-- **Retry Logic**: Exponential backoff with jitter for network resilience
+### Phase 1 (Complete)
+- ✅ **Secure Enrollment**: One-time token-based enrollment with Ed25519 keypair generation
+- ✅ **mTLS Transport**: All communication secured with mutual TLS authentication
+- ✅ **Cross-Platform**: Supports Windows, macOS (Intel & Apple Silicon), and Linux
+- ✅ **Heartbeat Monitoring**: Periodic system health reporting
+- ✅ **Structured Logging**: JSON-formatted logs for easy parsing
+- ✅ **Retry Logic**: Exponential backoff with jitter for network resilience
+
+### Phase 2 (Complete)
+- ✅ **Job Execution Engine**: Secure execution of remote jobs with policy enforcement
+- ✅ **Capability-Based Policies**: Ed25519-signed policies control allowed operations
+- ✅ **Binary Execution**: Run system commands with allowlist enforcement
+- ✅ **Script Execution**: Execute signed scripts with interpreter validation
+- ✅ **File Operations**: Download/upload files with path restrictions and hash verification
+- ✅ **Result Caching**: Automatic retry for failed result uploads
+- ✅ **Artifact Management**: Chunked uploads with presigned URLs
 
 ## Architecture
 
@@ -17,11 +27,14 @@ A secure, cross-platform Remote Monitoring and Management (RMM) agent written in
 ┌─────────────┐         mTLS          ┌──────────┐
 │ JTNT Agent  │◄─────────────────────►│   Hub    │
 │             │    Heartbeat/Jobs      │          │
+│   Policy    │                        │  Policy  │
+│  Enforcer   │                        │  Server  │
 └─────────────┘                        └──────────┘
       │
       ├─ Config & Certs (secure storage)
       ├─ System Info Collection
-      └─ Job Execution (future phases)
+      ├─ Job Executor (exec, script, file ops)
+      └─ Result Cache (retry on failure)
 ```
 
 ## Building
@@ -284,6 +297,137 @@ jtnt-agent/
 └── README.md
 ```
 
+## Job Execution (Phase 2)
+
+The agent polls the hub for jobs and executes them with policy enforcement.
+
+### Job Types
+
+#### 1. Binary Execution (`exec`)
+
+Execute system commands:
+
+```json
+{
+  "id": "job-123",
+  "type": "exec",
+  "timeout": 300,
+  "payload": {
+    "binary": "/usr/bin/systemctl",
+    "args": ["status", "nginx"],
+    "env": {
+      "PATH": "/usr/bin:/bin"
+    }
+  }
+}
+```
+
+#### 2. Script Execution (`script`)
+
+Run signed scripts:
+
+```json
+{
+  "id": "job-456",
+  "type": "script",
+  "timeout": 600,
+  "payload": {
+    "interpreter": "/bin/bash",
+    "script": "#!/bin/bash\necho 'Hello'\n",
+    "signature": "base64-ed25519-signature",
+    "env": {
+      "CUSTOM_VAR": "value"
+    }
+  }
+}
+```
+
+#### 3. File Download (`download`)
+
+Download files from hub:
+
+```json
+{
+  "id": "job-789",
+  "type": "download",
+  "timeout": 1800,
+  "payload": {
+    "url": "https://hub.jtnt.us/artifacts/config.tar.gz",
+    "dest_path": "/tmp/config.tar.gz",
+    "sha256": "abc123..."
+  }
+}
+```
+
+#### 4. File Upload (`upload`)
+
+Upload files to hub:
+
+```json
+{
+  "id": "job-101",
+  "type": "upload",
+  "timeout": 3600,
+  "payload": {
+    "src_path": "/var/log/nginx",
+    "artifact_name": "nginx-logs"
+  }
+}
+```
+
+### Policy Enforcement
+
+All jobs are subject to capability-based policies. See [docs/POLICY.md](docs/POLICY.md) for details.
+
+Example policy:
+
+```json
+{
+  "version": 1,
+  "agent_id": "agent-123",
+  "capabilities": {
+    "exec": {
+      "enabled": true,
+      "binary_allowlist": ["/usr/bin/systemctl", "/bin/ps"]
+    },
+    "script": {
+      "enabled": true,
+      "interpreter_allowlist": ["/bin/bash"],
+      "signature_required": true
+    },
+    "file": {
+      "enabled": true,
+      "read_allowlist": ["/var/log/**"],
+      "write_allowlist": ["/tmp/**"]
+    }
+  },
+  "signature": "policy-signature"
+}
+```
+
+### Job Results
+
+Results are reported back to hub:
+
+```json
+{
+  "status": "completed",
+  "exit_code": 0,
+  "output": "nginx is running",
+  "error": "",
+  "started_at": "2025-01-15T10:00:00Z",
+  "completed_at": "2025-01-15T10:00:02Z",
+  "artifacts": []
+}
+```
+
+### Result Caching
+
+If result upload fails, it's cached locally in `~/.jtnt/state/job_results_pending/` and retried:
+- Every 5 minutes during normal operation
+- On agent restart
+- Automatically purged after 7 days
+
 ## API Endpoints
 
 ### Enrollment
@@ -366,17 +510,23 @@ Levels: `debug`, `info`, `warn`, `error`, `fatal`
 3. Check certificate expiration
 4. Review agent logs for network errors
 
-## Phase 1 Limitations
+## Phase 2 Complete
 
-This is Phase 1 implementation. The following features are **not yet implemented**:
+This release includes the full job execution engine with:
 
-- Job execution and command processing
-- Policy enforcement beyond basic capabilities
+- ✅ Job polling and execution
+- ✅ Policy enforcement with Ed25519 signatures
+- ✅ Binary/script/file operation handlers
+- ✅ Result caching and retry mechanism
+- ✅ Artifact management with chunked uploads
+
+## Future Phases
+
+Phase 3 will add:
 - Self-update mechanism
-- Advanced system metrics
+- Advanced system metrics and monitoring
 - Windows service installation
-
-These will be added in subsequent phases.
+- Enhanced logging and audit trails
 
 ## License
 
@@ -390,4 +540,7 @@ For issues and questions:
 
 ## Version
 
-Current version: **1.0.0** (Phase 1)
+Current version: **2.0.0** (Phase 2 Complete)
+
+- Phase 1: Enrollment, mTLS, Heartbeat
+- Phase 2: Job Execution, Policy Enforcement, Artifact Management

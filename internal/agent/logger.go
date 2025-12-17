@@ -119,3 +119,17 @@ func (l *Logger) Error(component string, fields map[string]interface{}) {
 func (l *Logger) Fatal(component string, fields map[string]interface{}) {
 	l.log(LogLevelFatal, component, fields)
 }
+
+// Audit logs an audit event for job execution
+func (l *Logger) Audit(jobID string, jobType string, status string, fields map[string]interface{}) {
+	auditFields := make(map[string]interface{})
+	auditFields["job_id"] = jobID
+	auditFields["job_type"] = jobType
+	auditFields["status"] = status
+	
+	for k, v := range fields {
+		auditFields[k] = v
+	}
+	
+	l.log(LogLevelInfo, "audit", auditFields)
+}
