@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="JTNT Agent" 
+           Language="1033" 
+           Version="!(bind.FileVersion.AgentExe)" 
+           Manufacturer="JTNT Communications" 
+           UpgradeCode="8B4E9C3A-7D2F-4A1B-9E5C-6F8A3D2E1C4B">
+    
+    <Package InstallerVersion="500" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Platform="x64"
+             Description="JTNT RMM Agent for remote management"
+             Comments="Secure remote management agent for JTNT Hub platform" />
+
+    <!-- Upgrade support - preserve state and certificates -->
+    <MajorUpgrade 
+      DowngradeErrorMessage="A newer version of JTNT Agent is already installed. Please uninstall it first."
+      Schedule="afterInstallInitialize"
+      AllowSameVersionUpgrades="yes" />
+
+    <!-- Media -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Properties for silent install -->
+    <Property Id="ENROLLMENT_TOKEN" />
+    <Property Id="HUB_URL" Value="https://hub.jtnt.us" />
+    <Property Id="PRESERVESTATE" Value="1" />
+
+    <!-- Check for Windows version (Windows 10 or Server 2016+) -->
+    <Condition Message="This application requires Windows 10 or Windows Server 2016 or higher.">
+      <![CDATA[Installed OR (VersionNT >= 603)]]>
+    </Condition>
+
+    <!-- Directory structure -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="JTNT" Name="JTNT">
+          <Directory Id="INSTALLFOLDER" Name="Agent" />
+        </Directory>
+      </Directory>
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="JTNTData" Name="JTNT">
+          <Directory Id="AgentData" Name="Agent">
+            <Directory Id="CertsData" Name="certs" />
+            <Directory Id="LogsData" Name="logs" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="JTNT Agent" Level="1" ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ServiceComponents" />
+      <ComponentGroupRef Id="DataDirectories" />
+    </Feature>
+
+    <!-- UI for interactive install -->
+    <UIRef Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    
+  </Product>
+
+  <!-- Product Components -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Main agent daemon -->
+      <Component Id="AgentExecutable" Guid="1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D" Win64="yes">
+        <File Id="AgentExe" 
+              Source="$(var.AgentPath)\jtnt-agentd.exe" 
+              KeyPath="yes"
+              Checksum="yes" />
+      </Component>
+      
+      <!-- CLI tool -->
+      <Component Id="CLIExecutable" Guid="2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E" Win64="yes">
+        <File Id="CLIExe" 
+              Source="$(var.AgentPath)\jtnt-agent.exe"
+              Checksum="yes" />
+        
+        <!-- Add to PATH -->
+        <Environment Id="PATH" 
+                     Name="PATH" 
+                     Value="[INSTALLFOLDER]" 
+                     Permanent="no" 
+                     Part="last" 
+                     Action="set" 
+                     System="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Data directories -->
+    <ComponentGroup Id="DataDirectories">
+      <Component Id="CertsDir" Directory="CertsData" Guid="3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F" Win64="yes">
+        <CreateFolder>
+          <Permission User="NetworkService" GenericAll="yes" />
+          <Permission User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+        <RemoveFolder Id="RemoveCertsDir" On="uninstall" />
+        <RegistryValue Root="HKLM" 
+                       Key="Software\JTNT\Agent" 
+                       Name="CertsDir" 
+                       Type="string" 
+                       Value="[CertsData]" 
+                       KeyPath="yes" />
+      </Component>
+      
+      <Component Id="LogsDir" Directory="LogsData" Guid="4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A" Win64="yes">
+        <CreateFolder>
+          <Permission User="NetworkService" GenericAll="yes" />
+          <Permission User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+        <RemoveFolder Id="RemoveLogsDir" On="uninstall" />
+        <RegistryValue Root="HKLM" 
+                       Key="Software\JTNT\Agent" 
+                       Name="LogsDir" 
+                       Type="string" 
+                       Value="[LogsData]" 
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Service component -->
+    <ComponentGroup Id="ServiceComponents" Directory="INSTALLFOLDER">
+      <Component Id="AgentService" Guid="5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B" Win64="yes">
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Name="JTNTAgent"
+                        DisplayName="JTNT Agent"
+                        Description="JTNT RMM Agent for secure remote management and monitoring"
+                        Start="auto"
+                        Account="NT AUTHORITY\NetworkService"
+                        ErrorControl="normal"
+                        Arguments="--service"
+                        Interactive="no">
+          <!-- Service recovery options -->
+          <ServiceConfig 
+            DelayedAutoStart="no"
+            OnInstall="yes"
+            OnReinstall="yes" />
+        </ServiceInstall>
+        
+        <ServiceControl Id="StartService"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Name="JTNTAgent"
+                        Wait="yes" />
+        
+        <!-- Registry marker for service -->
+        <RegistryValue Root="HKLM" 
+                       Key="Software\JTNT\Agent" 
+                       Name="Installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Custom actions for enrollment -->
+  <Fragment>
+    <!-- Stop service before enrollment -->
+    <CustomAction Id="StopServiceBeforeEnroll"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand='net stop JTNTAgent'
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+    
+    <!-- Enroll the agent -->
+    <CustomAction Id="EnrollAgent" 
+                  Directory="INSTALLFOLDER"
+                  ExeCommand='"[INSTALLFOLDER]jtnt-agent.exe" enroll --token "[ENROLLMENT_TOKEN]" --hub "[HUB_URL]"'
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+    
+    <!-- Start service after enrollment -->
+    <CustomAction Id="StartServiceAfterEnroll"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand='net start JTNTAgent'
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <!-- Enrollment sequence (only on new install with token) -->
+      <Custom Action="StopServiceBeforeEnroll" After="InstallServices">
+        NOT Installed AND ENROLLMENT_TOKEN
+      </Custom>
+      <Custom Action="EnrollAgent" After="StopServiceBeforeEnroll">
+        NOT Installed AND ENROLLMENT_TOKEN
+      </Custom>
+      <Custom Action="StartServiceAfterEnroll" After="EnrollAgent">
+        NOT Installed AND ENROLLMENT_TOKEN
+      </Custom>
+    </InstallExecuteSequence>
+  </Fragment>
+
+  <!-- UI customization -->
+  <Fragment>
+    <UI Id="WixUI_Minimal">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="Minimal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <DialogRef Id="WelcomeEulaDlg" />
+
+      <Publish Dialog="WelcomeEulaDlg" Control="Next" Event="EndDialog" Value="Return">1</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return">1</Publish>
+    </UI>
+  </Fragment>
+</Wix>

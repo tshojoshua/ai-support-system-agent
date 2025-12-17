@@ -1,0 +1,51 @@
+#!/bin/bash
+# JTNT Agent - Post-Remove Script for Debian/Ubuntu
+# Runs after package removal
+
+set -e
+
+case "$1" in
+    purge)
+        # Complete removal including data
+        echo "Purging JTNT Agent data..."
+        
+        # Remove state directory
+        rm -rf /var/lib/jtnt-agent
+        
+        # Remove config directory
+        rm -rf /etc/jtnt-agent
+        
+        # Remove user and group
+        if getent passwd jtnt-agent >/dev/null; then
+            userdel jtnt-agent 2>/dev/null || true
+        fi
+        
+        if getent group jtnt-agent >/dev/null; then
+            groupdel jtnt-agent 2>/dev/null || true
+        fi
+        
+        echo "JTNT Agent purged completely"
+        ;;
+        
+    remove)
+        # Package removed but keep data (default)
+        echo "JTNT Agent removed (data preserved)"
+        echo "To remove all data, run: sudo apt-get purge jtnt-agent"
+        ;;
+        
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Do nothing
+        ;;
+        
+    *)
+        echo "postrm called with unknown argument: $1" >&2
+        exit 1
+        ;;
+esac
+
+# Reload systemd daemon
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+exit 0

@@ -1,0 +1,77 @@
+#!/bin/bash
+# JTNT Agent - Post-Install Script for Debian/Ubuntu
+# Runs after package installation
+
+set -e
+
+# Create system user and group
+echo "Creating jtnt-agent user and group..."
+if ! getent group jtnt-agent >/dev/null; then
+    groupadd --system jtnt-agent
+fi
+
+if ! getent passwd jtnt-agent >/dev/null; then
+    useradd --system \
+            --gid jtnt-agent \
+            --home-dir /var/lib/jtnt-agent \
+            --shell /usr/sbin/nologin \
+            --comment "JTNT Agent Service Account" \
+            jtnt-agent
+fi
+
+# Create directories with proper permissions
+echo "Setting up state directories..."
+mkdir -p /var/lib/jtnt-agent/{certs,logs}
+mkdir -p /etc/jtnt-agent
+
+chown -R jtnt-agent:jtnt-agent /var/lib/jtnt-agent
+chmod 755 /var/lib/jtnt-agent
+chmod 700 /var/lib/jtnt-agent/certs
+chmod 755 /var/lib/jtnt-agent/logs
+
+# Set permissions on config directory
+chown root:jtnt-agent /etc/jtnt-agent
+chmod 750 /etc/jtnt-agent
+
+# Reload systemd daemon
+echo "Reloading systemd..."
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+# Enable service (but don't start yet - need enrollment first)
+echo "Enabling JTNT Agent service..."
+if [ -d /run/systemd/system ]; then
+    systemctl enable jtnt-agentd.service >/dev/null 2>&1 || true
+fi
+
+# Try to start the service if it's an upgrade and was running
+if [ "$1" = "configure" ] && [ -n "$2" ]; then
+    # This is an upgrade
+    echo "Upgrade detected, restarting service..."
+    if [ -d /run/systemd/system ]; then
+        systemctl try-restart jtnt-agentd.service >/dev/null 2>&1 || true
+    fi
+else
+    # This is a fresh install
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "JTNT Agent installed successfully!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Enroll the agent with your JTNT Hub:"
+    echo "   sudo jtnt-agent enroll --token YOUR_TOKEN --hub https://hub.jtnt.us"
+    echo ""
+    echo "2. Start the service:"
+    echo "   sudo systemctl start jtnt-agentd"
+    echo ""
+    echo "3. Check status:"
+    echo "   sudo systemctl status jtnt-agentd"
+    echo ""
+    echo "For help, visit: https://docs.jtnt.us/agent"
+    echo ""
+fi
+
+exit 0

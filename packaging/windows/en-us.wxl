@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-us" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+  <!-- Product Information -->
+  <String Id="ProductName">JTNT Agent</String>
+  <String Id="ManufacturerName">JTNT Communications</String>
+  <String Id="ProductDescription">Remote management agent for JTNT Hub platform</String>
+  
+  <!-- Dialog Strings -->
+  <String Id="WelcomeEulaDlgTitle">{\WixUI_Font_Title}Welcome to the JTNT Agent Setup</String>
+  <String Id="WelcomeEulaDlgDescription">The Setup will install JTNT Agent on your computer. Click Next to continue or Cancel to exit the Setup.</String>
+  
+  <!-- License Agreement -->
+  <String Id="LicenseAgreementDlgTitle">{\WixUI_Font_Title}End-User License Agreement</String>
+  <String Id="LicenseAgreementDlgDescription">Please read the following license agreement carefully.</String>
+  
+  <!-- Progress -->
+  <String Id="ProgressDlgTitleInstalling">{\WixUI_Font_Title}Installing JTNT Agent</String>
+  <String Id="ProgressDlgTextInstalling">Please wait while the Setup installs JTNT Agent on your computer.</String>
+  
+  <!-- Exit -->
+  <String Id="ExitDlgTitle">{\WixUI_Font_Title}Completing the JTNT Agent Setup</String>
+  <String Id="ExitDlgDescription">Click Finish to exit the Setup.</String>
+  
+  <!-- Maintenance -->
+  <String Id="MaintenanceTypeDlgTitle">{\WixUI_Font_Title}Change, repair, or remove installation</String>
+  <String Id="MaintenanceTypeDlgDescription">Select the operation you wish to perform.</String>
+</WixLocalization>

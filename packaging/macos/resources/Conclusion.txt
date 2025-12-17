@@ -1,0 +1,39 @@
+Installation Complete
+
+JTNT Agent has been successfully installed on your Mac.
+
+The agent service is now running and will start automatically on system boot.
+
+Next Steps:
+
+1. Enroll the agent with your JTNT Hub:
+   sudo jtnt-agent enroll --token YOUR_ENROLLMENT_TOKEN
+
+2. Verify the agent is running:
+   sudo launchctl list | grep jtnt
+
+3. View agent logs:
+   tail -f "/Library/Application Support/JTNT/Agent/logs/stdout.log"
+
+Useful Commands:
+
+• Check status:
+  sudo launchctl list us.jtnt.agentd
+
+• Stop service:
+  sudo launchctl unload -w /Library/LaunchDaemons/us.jtnt.agentd.plist
+
+• Start service:
+  sudo launchctl load -w /Library/LaunchDaemons/us.jtnt.agentd.plist
+
+• Restart service:
+  sudo launchctl unload /Library/LaunchDaemons/us.jtnt.agentd.plist
+  sudo launchctl load /Library/LaunchDaemons/us.jtnt.agentd.plist
+
+• Uninstall:
+  sudo /usr/local/jtnt/agent/uninstall.sh
+
+For help and documentation, visit:
+https://docs.jtnt.us/agent
+
+Support: support@jtnt.us

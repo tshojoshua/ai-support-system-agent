@@ -1,0 +1,19 @@
+Package: jtnt-agent
+Version: {VERSION}
+Section: admin
+Priority: optional
+Architecture: {ARCH}
+Depends: libc6 (>= 2.31), systemd
+Maintainer: JTNT Communications <support@jtnt.us>
+Homepage: https://hub.jtnt.us
+Description: JTNT RMM Agent
+ Remote management agent for the JTNT Hub platform.
+ Provides secure, monitored access for IT management.
+ .
+ Features:
+  * Secure mTLS communication
+  * Capability-based policy enforcement
+  * Real-time monitoring and health checks
+  * Automatic certificate rotation
+  * Signed self-update mechanism
+  * Comprehensive audit logging

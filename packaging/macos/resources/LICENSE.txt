@@ -1,0 +1,40 @@
+JTNT Agent License Agreement
+
+Copyright (c) 2025 JTNT Communications
+All rights reserved.
+
+This End-User License Agreement ("Agreement") is between you and JTNT Communications ("JTNT").
+
+1. LICENSE GRANT
+JTNT grants you a non-exclusive license to install and use the JTNT Agent software on devices within your organization, solely for use with the JTNT Hub platform.
+
+2. RESTRICTIONS
+You may not:
+- Reverse engineer, decompile, or disassemble the software
+- Rent, lease, or lend the software
+- Use the software for any unlawful purpose
+- Remove or alter any proprietary notices
+
+3. OWNERSHIP
+The software is licensed, not sold. JTNT retains all rights, title, and interest in the software.
+
+4. WARRANTY DISCLAIMER
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+5. LIMITATION OF LIABILITY
+IN NO EVENT SHALL JTNT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THIS SOFTWARE.
+
+6. TERM AND TERMINATION
+This license is effective until terminated. JTNT may terminate if you fail to comply with any terms. Upon termination, you must cease use and destroy all copies.
+
+7. GOVERNING LAW
+This Agreement shall be governed by applicable law without regard to conflicts of law provisions.
+
+8. ENTIRE AGREEMENT
+This Agreement constitutes the entire agreement between you and JTNT regarding the software.
+
+By installing the software, you acknowledge that you have read this Agreement and agree to be bound by its terms.
+
+JTNT Communications
+support@jtnt.us
+https://hub.jtnt.us

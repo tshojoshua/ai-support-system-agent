@@ -1,0 +1,23 @@
+Welcome to JTNT Agent
+
+This installer will install the JTNT Agent on your Mac. The agent provides secure remote management capabilities through the JTNT Hub platform.
+
+What will be installed:
+• JTNT Agent daemon (jtnt-agentd)
+• JTNT Agent CLI tool (jtnt-agent)
+• launchd service configuration
+• System PATH integration
+
+Installation location:
+• Binaries: /usr/local/jtnt/agent/
+• State data: /Library/Application Support/JTNT/Agent/
+• Service config: /Library/LaunchDaemons/us.jtnt.agentd.plist
+
+The agent will start automatically after installation.
+
+System Requirements:
+• macOS 13.0 (Ventura) or later
+• 50 MB free disk space
+• Network connectivity to JTNT Hub
+
+For more information, visit: https://docs.jtnt.us/agent

@@ -1,0 +1,32 @@
+#!/bin/bash
+# JTNT Agent - macOS Pre-Install Script
+# Runs before installation to prepare the system
+
+set -e
+
+echo "JTNT Agent Pre-Install"
+echo "======================"
+
+# Check for existing installation
+PLIST_PATH="/Library/LaunchDaemons/us.jtnt.agentd.plist"
+if [ -f "$PLIST_PATH" ]; then
+    echo "Existing installation detected, stopping service..."
+    
+    # Unload existing service
+    launchctl unload -w "$PLIST_PATH" 2>/dev/null || true
+    
+    # Wait for service to stop
+    sleep 2
+    
+    echo "Existing service stopped"
+fi
+
+# Create state directory if it doesn't exist
+STATE_DIR="/Library/Application Support/JTNT/Agent"
+if [ ! -d "$STATE_DIR" ]; then
+    echo "Creating state directory..."
+    mkdir -p "$STATE_DIR"/{certs,logs}
+fi
+
+echo "Pre-install complete"
+exit 0

@@ -2,6 +2,8 @@
 
 A secure, cross-platform Remote Monitoring and Management (RMM) agent written in Go.
 
+**Current Version:** 4.0.0
+
 ## Features
 
 ### Phase 1 (Complete)
@@ -31,6 +33,16 @@ A secure, cross-platform Remote Monitoring and Management (RMM) agent written in
 - ✅ **Audit Logging**: Cryptographically signed audit trail
 - ✅ **Network Resilience**: Survives 72-hour network outages
 
+### Phase 4 (Complete)
+- ✅ **Windows MSI Installer**: WiX-based installer with silent install support
+- ✅ **macOS PKG Installer**: Universal binary (Intel + Apple Silicon) with launchd integration
+- ✅ **Linux DEB Package**: Debian/Ubuntu package with systemd hardening
+- ✅ **Service Integration**: Automatic service setup on all platforms
+- ✅ **Silent Installation**: Automated deployment with enrollment token
+- ✅ **Upgrade-in-Place**: Seamless upgrades preserving agent ID and certificates
+- ✅ **Universal Scripts**: Cross-platform install/uninstall scripts
+- ✅ **CI/CD Pipeline**: Automated builds and releases via GitHub Actions
+
 ## Architecture
 
 ```
@@ -46,6 +58,35 @@ A secure, cross-platform Remote Monitoring and Management (RMM) agent written in
       ├─ Job Executor (exec, script, file ops)
       └─ Result Cache (retry on failure)
 ```
+
+## Quick Start
+
+### Installation
+
+**Linux/macOS (Universal installer):**
+```bash
+curl -fsSL https://install.jtnt.us/agent.sh | sudo bash -s -- --token YOUR_TOKEN
+```
+
+**Windows (Silent install):**
+```cmd
+msiexec /i JTNT-Agent-1.0.0-x64.msi /qn ENROLLMENT_TOKEN="YOUR_TOKEN"
+```
+
+**Debian/Ubuntu:**
+```bash
+sudo dpkg -i jtnt-agent_1.0.0_amd64.deb
+sudo jtnt-agent enroll --token YOUR_TOKEN
+sudo systemctl start jtnt-agentd
+```
+
+**macOS:**
+```bash
+sudo installer -pkg JTNT-Agent-1.0.0.pkg -target /
+sudo jtnt-agent enroll --token YOUR_TOKEN
+```
+
+See [Installation Guide](docs/INSTALLATION.md) for detailed instructions.
 
 ## Building
 
@@ -79,7 +120,15 @@ go build -o bin/jtnt-agentd ./cmd/agentd
 go build -o bin/jtnt-agent ./cmd/jtnt-agent
 ```
 
-## Installation
+### Building Installers
+
+See [Packaging Guide](docs/PACKAGING.md) for building platform-specific installers:
+
+- **Windows MSI:** `cd packaging/windows && .\build.ps1`
+- **macOS PKG:** `cd packaging/macos && ./build.sh`
+- **Linux DEB:** `cd packaging/linux && ./build.sh`
+
+## Installation (Development)
 
 ### Linux/macOS
 
@@ -632,13 +681,30 @@ Copyright © 2025 JTNT. All rights reserved.
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/tshojoshua/jtnt-agent/issues
-- Documentation: https://docs.jtnt.us
+- GitHub Issues: https://github.com/tshojoshua/ai-support-system-agent/issues
+- Email: support@jtnt.us
+- Documentation: https://docs.jtnt.us/agent
+
+## Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete installation instructions for all platforms
+- **[Packaging Guide](docs/PACKAGING.md)** - Building installers and CI/CD pipeline
+- **[Policy Reference](docs/POLICY.md)** - Complete policy system documentation
+- **[Operations Guide](docs/OPERATIONS.md)** - Monitoring, troubleshooting, and maintenance
+- **[Phase 2 Summary](docs/PHASE2_SUMMARY.md)** - Job execution implementation details
+- **[Phase 3 Summary](docs/PHASE3_SUMMARY.md)** - Reliability and observability features
+- **[Phase 4 Summary](docs/PHASE4_SUMMARY.md)** - Packaging and deployment system
 
 ## Version
 
-Current version: **3.0.0** (Phase 3 Complete)
+Current version: **4.0.0** (Phase 4 Complete)
 
-- Phase 1: Enrollment, mTLS, Heartbeat
-- Phase 2: Job Execution, Policy Enforcement, Artifact Management
-- Phase 3: Metrics, Health Checks, Auto-Updates, Audit Logs
+- **Phase 1:** Enrollment, mTLS, Heartbeat
+- **Phase 2:** Job Execution, Policy Enforcement, Artifact Management
+- **Phase 3:** Metrics, Health Checks, Auto-Updates, Audit Logs
+- **Phase 4:** Production Installers, Service Integration, CI/CD Pipeline
+
+## License
+
+Copyright © 2025 JTNT Communications. All rights reserved.
+

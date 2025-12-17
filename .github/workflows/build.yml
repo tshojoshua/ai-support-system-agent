@@ -1,0 +1,342 @@
+name: Build and Release Agent
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  # Build Windows MSI
+  build-windows:
+    name: Build Windows MSI
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get version
+        id: get_version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $VERSION = "${{ github.event.inputs.version }}"
+          } else {
+            $VERSION = "${{ github.ref_name }}".TrimStart('v')
+          }
+          echo "VERSION=$VERSION" >> $env:GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          choco install wixtoolset -y
+          $env:Path += ";C:\Program Files (x86)\WiX Toolset v3.11\bin"
+          echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $env:GITHUB_PATH
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          cd packaging/windows
+          .\build.ps1 -Version "${{ steps.get_version.outputs.VERSION }}" -Platform "x64"
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi-x64
+          path: packaging/windows/output/*.msi
+          retention-days: 7
+
+  # Build macOS PKG
+  build-macos:
+    name: Build macOS PKG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build PKG
+        run: |
+          cd packaging/macos
+          chmod +x build.sh
+          ./build.sh ${{ steps.get_version.outputs.VERSION }}
+
+      - name: Upload PKG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-pkg-universal
+          path: packaging/macos/output/*.pkg
+          retention-days: 7
+
+  # Build Linux DEB packages
+  build-linux-deb:
+    name: Build Linux DEB
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev debhelper lintian
+
+      - name: Build DEB
+        run: |
+          cd packaging/linux
+          chmod +x build.sh
+          ./build.sh ${{ steps.get_version.outputs.VERSION }} ${{ matrix.arch }}
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb-${{ matrix.arch }}
+          path: packaging/linux/output/*.deb
+          retention-days: 7
+
+  # Sign and create release
+  sign-and-release:
+    name: Sign Packages and Create Release
+    needs: [build-windows, build-macos, build-linux-deb]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install signing tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssl
+
+      - name: Sign artifacts
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          mkdir -p signed
+          
+          # Decode signing key from base64
+          echo "$SIGNING_KEY" | base64 -d > signing.key
+          
+          # Sign all packages
+          for file in artifacts/*/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              
+              # Create SHA256 checksum
+              sha256sum "$file" | cut -d' ' -f1 > "signed/${filename}.sha256"
+              
+              # Create Ed25519 signature
+              openssl pkeyutl -sign -inkey signing.key \
+                -keyform DER -rawin \
+                -in <(sha256sum "$file" | cut -d' ' -f1 | xxd -r -p) \
+                -out "signed/${filename}.sig"
+              
+              # Copy original file
+              cp "$file" "signed/"
+              
+              echo "Signed: $filename"
+            fi
+          done
+          
+          # Clean up signing key
+          rm -f signing.key
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > RELEASE_NOTES.md <<EOF
+          # JTNT Agent ${{ steps.get_version.outputs.VERSION }}
+
+          ## Downloads
+
+          ### Windows
+          - \`JTNT-Agent-${{ steps.get_version.outputs.VERSION }}-x64.msi\` - Windows installer (x64)
+
+          ### macOS
+          - \`JTNT-Agent-${{ steps.get_version.outputs.VERSION }}.pkg\` - macOS installer (Universal Binary)
+
+          ### Linux
+          - \`jtnt-agent_${{ steps.get_version.outputs.VERSION }}_amd64.deb\` - Debian/Ubuntu (amd64)
+          - \`jtnt-agent_${{ steps.get_version.outputs.VERSION }}_arm64.deb\` - Debian/Ubuntu (arm64)
+
+          ## Installation
+
+          ### Quick Install (Linux/macOS)
+          \`\`\`bash
+          curl -fsSL https://install.jtnt.us/agent.sh | sudo bash -s -- --token YOUR_TOKEN
+          \`\`\`
+
+          ### Windows
+          \`\`\`cmd
+          msiexec /i JTNT-Agent-${{ steps.get_version.outputs.VERSION }}-x64.msi /qn ENROLLMENT_TOKEN="YOUR_TOKEN"
+          \`\`\`
+
+          ### Debian/Ubuntu
+          \`\`\`bash
+          sudo dpkg -i jtnt-agent_${{ steps.get_version.outputs.VERSION }}_amd64.deb
+          sudo jtnt-agent enroll --token YOUR_TOKEN
+          \`\`\`
+
+          ### macOS
+          \`\`\`bash
+          sudo installer -pkg JTNT-Agent-${{ steps.get_version.outputs.VERSION }}.pkg -target /
+          sudo jtnt-agent enroll --token YOUR_TOKEN
+          \`\`\`
+
+          ## Verification
+
+          All packages are signed with Ed25519. Verify with:
+          \`\`\`bash
+          sha256sum -c filename.sha256
+          # Signature verification with public key
+          \`\`\`
+
+          ## Changelog
+
+          See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+
+          ## Documentation
+
+          - [Installation Guide](docs/INSTALLATION.md)
+          - [Operations Manual](docs/OPERATIONS.md)
+          - [API Documentation](https://docs.jtnt.us/agent)
+
+          ## Support
+
+          - Email: support@jtnt.us
+          - Documentation: https://docs.jtnt.us/agent
+          - Issues: https://github.com/tshojoshua/ai-support-system-agent/issues
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: |
+            signed/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest.txt
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ steps.get_version.outputs.VERSION }}" > latest.txt
+          # This would typically be uploaded to releases.jtnt.us
+          # For now, just create the file as an artifact
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: |
+            latest.txt
+            RELEASE_NOTES.md
+          retention-days: 90
+
+  # Notify on completion
+  notify:
+    name: Notify Release Complete
+    needs: [sign-and-release]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Slack notification
+        if: vars.SLACK_WEBHOOK_URL
+        run: |
+          curl -X POST "${{ vars.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "✅ JTNT Agent ${{ steps.get_version.outputs.VERSION }} released!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*JTNT Agent ${{ steps.get_version.outputs.VERSION }}* has been released!\n\n<${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.VERSION }}|View Release>"
+                  }
+                }
+              ]
+            }'

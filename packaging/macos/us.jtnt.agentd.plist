@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>us.jtnt.agentd</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/jtnt/agent/jtnt-agentd</string>
+    </array>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>Crashed</key>
+        <true/>
+    </dict>
+    
+    <key>StandardOutPath</key>
+    <string>/Library/Application Support/JTNT/Agent/logs/stdout.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Library/Application Support/JTNT/Agent/logs/stderr.log</string>
+    
+    <key>WorkingDirectory</key>
+    <string>/Library/Application Support/JTNT/Agent</string>
+    
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>JTNT_STATE_DIR</key>
+        <string>/Library/Application Support/JTNT/Agent</string>
+    </dict>
+    
+    <!-- Security hardening -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <key>Nice</key>
+    <integer>0</integer>
+    
+    <!-- Restart throttle (10 seconds minimum between restarts) -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    
+    <!-- Exit timeout (30 seconds for graceful shutdown) -->
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+    
+    <!-- Logging -->
+    <key>Debug</key>
+    <false/>
+    
+    <!-- Resource limits -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>4096</integer>
+    </dict>
+    
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>8192</integer>
+    </dict>
+</dict>
+</plist>

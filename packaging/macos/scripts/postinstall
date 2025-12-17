@@ -1,0 +1,107 @@
+#!/bin/bash
+# JTNT Agent - macOS Post-Install Script
+# Runs after installation to configure and start the agent
+
+set -e
+
+INSTALL_DIR="/usr/local/jtnt/agent"
+STATE_DIR="/Library/Application Support/JTNT/Agent"
+PLIST_PATH="/Library/LaunchDaemons/us.jtnt.agentd.plist"
+
+echo "JTNT Agent Post-Install"
+echo "======================="
+
+# Verify installation directory exists
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo "ERROR: Installation directory not found: $INSTALL_DIR"
+    exit 1
+fi
+
+# Create state directories with proper permissions
+echo "Setting up state directory..."
+mkdir -p "$STATE_DIR"/{certs,logs}
+chmod 755 "$STATE_DIR"
+chmod 700 "$STATE_DIR/certs"
+chmod 755 "$STATE_DIR/logs"
+
+# Set permissions on binaries
+echo "Setting permissions on binaries..."
+chmod 755 "$INSTALL_DIR/jtnt-agentd"
+chmod 755 "$INSTALL_DIR/jtnt-agent"
+
+# Verify binaries are executable
+if ! "$INSTALL_DIR/jtnt-agentd" --version >/dev/null 2>&1; then
+    echo "WARNING: Agent daemon may not be executable or is missing dependencies"
+fi
+
+# Install launchd plist
+echo "Installing launchd configuration..."
+if [ -f "$INSTALL_DIR/us.jtnt.agentd.plist" ]; then
+    cp "$INSTALL_DIR/us.jtnt.agentd.plist" "$PLIST_PATH"
+    chmod 644 "$PLIST_PATH"
+    chown root:wheel "$PLIST_PATH"
+else
+    echo "ERROR: launchd plist not found in installation directory"
+    exit 1
+fi
+
+# Add to PATH if not already present
+echo "Updating system PATH..."
+PATHS_FILE="/etc/paths.d/jtnt-agent"
+if [ ! -f "$PATHS_FILE" ]; then
+    echo "$INSTALL_DIR" > "$PATHS_FILE"
+    chmod 644 "$PATHS_FILE"
+fi
+
+# Check for enrollment token (passed via installer)
+if [ -n "$ENROLLMENT_TOKEN" ]; then
+    echo "Enrollment token detected, enrolling agent..."
+    
+    HUB_URL="${HUB_URL:-https://hub.jtnt.us}"
+    
+    # Enroll the agent
+    if "$INSTALL_DIR/jtnt-agent" enroll --token "$ENROLLMENT_TOKEN" --hub "$HUB_URL"; then
+        echo "Agent enrolled successfully"
+    else
+        echo "WARNING: Enrollment failed. You can enroll manually later with:"
+        echo "  sudo $INSTALL_DIR/jtnt-agent enroll --token <TOKEN> --hub $HUB_URL"
+    fi
+fi
+
+# Load and start the service
+echo "Starting JTNT Agent service..."
+if launchctl load -w "$PLIST_PATH"; then
+    echo "Service started successfully"
+    
+    # Wait a moment and check status
+    sleep 2
+    if launchctl list | grep -q "us.jtnt.agentd"; then
+        echo "✓ JTNT Agent is running"
+    else
+        echo "WARNING: Service may not have started correctly"
+        echo "Check logs at: $STATE_DIR/logs/"
+    fi
+else
+    echo "WARNING: Failed to start service"
+    echo "You can start it manually with: sudo launchctl load -w $PLIST_PATH"
+fi
+
+# Display installation summary
+echo ""
+echo "Installation Summary"
+echo "===================="
+echo "Installation directory: $INSTALL_DIR"
+echo "State directory:        $STATE_DIR"
+echo "Service configuration:  $PLIST_PATH"
+echo ""
+echo "Useful Commands:"
+echo "  Check status:   sudo launchctl list | grep jtnt"
+echo "  View logs:      tail -f '$STATE_DIR/logs/stdout.log'"
+echo "  Enroll agent:   sudo jtnt-agent enroll --token <TOKEN>"
+echo "  Stop service:   sudo launchctl unload -w '$PLIST_PATH'"
+echo "  Start service:  sudo launchctl load -w '$PLIST_PATH'"
+echo ""
+echo "For help, visit: https://docs.jtnt.us/agent"
+echo ""
+
+exit 0

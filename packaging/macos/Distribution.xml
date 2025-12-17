@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>JTNT Agent</title>
+    <organization>us.jtnt</organization>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    
+    <options customize="never" require-scripts="true" rootVolumeOnly="true" hostArchitectures="x86_64,arm64"/>
+    
+    <!-- License -->
+    <license file="LICENSE.txt" mime-type="text/plain"/>
+    
+    <!-- README -->
+    <readme file="README.txt" mime-type="text/plain"/>
+    
+    <!-- Welcome message -->
+    <welcome file="Welcome.txt" mime-type="text/plain"/>
+    
+    <!-- Conclusion message -->
+    <conclusion file="Conclusion.txt" mime-type="text/plain"/>
+    
+    <!-- Background and styling -->
+    <background file="background.png" mime-type="image/png" alignment="bottomleft" scaling="none"/>
+    
+    <!-- Installation check -->
+    <installation-check script="installCheck()"/>
+    
+    <script>
+    <![CDATA[
+    function installCheck() {
+        // Check macOS version (require 13.0 or later)
+        if (system.compareVersions(system.version.ProductVersion, '13.0') < 0) {
+            my.result.title = 'macOS Version Too Old';
+            my.result.message = 'This software requires macOS 13.0 (Ventura) or later.';
+            my.result.type = 'Fatal';
+            return false;
+        }
+        
+        // Check for sufficient disk space (50 MB)
+        if (system.files.freeSpace('/') < 52428800) {
+            my.result.title = 'Insufficient Disk Space';
+            my.result.message = 'At least 50 MB of free disk space is required.';
+            my.result.type = 'Fatal';
+            return false;
+        }
+        
+        return true;
+    }
+    ]]>
+    </script>
+    
+    <!-- Choices outline -->
+    <choices-outline>
+        <line choice="default">
+            <line choice="us.jtnt.agent"/>
+        </line>
+    </choices-outline>
+    
+    <choice id="default"/>
+    
+    <choice id="us.jtnt.agent" visible="false">
+        <pkg-ref id="us.jtnt.agent"/>
+    </choice>
+    
+    <pkg-ref id="us.jtnt.agent" version="0" onConclusion="none">JTNT-Agent-component.pkg</pkg-ref>
+    
+</installer-gui-script>
