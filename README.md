@@ -21,6 +21,16 @@ A secure, cross-platform Remote Monitoring and Management (RMM) agent written in
 - ✅ **Result Caching**: Automatic retry for failed result uploads
 - ✅ **Artifact Management**: Chunked uploads with presigned URLs
 
+### Phase 3 (Complete)
+- ✅ **Prometheus Metrics**: Comprehensive metrics on localhost:9090
+- ✅ **Health Checks**: Health endpoint on localhost:9091
+- ✅ **Advanced Retry**: Exponential backoff with jitter and circuit breaker pattern
+- ✅ **Certificate Rotation**: Automatic renewal 30 days before expiry
+- ✅ **Self-Update**: Signed binary updates with automatic rollback
+- ✅ **Graceful Shutdown**: Job-aware shutdown with configurable timeouts
+- ✅ **Audit Logging**: Cryptographically signed audit trail
+- ✅ **Network Resilience**: Survives 72-hour network outages
+
 ## Architecture
 
 ```
@@ -510,23 +520,110 @@ Levels: `debug`, `info`, `warn`, `error`, `fatal`
 3. Check certificate expiration
 4. Review agent logs for network errors
 
-## Phase 2 Complete
+## Monitoring and Operations (Phase 3)
 
-This release includes the full job execution engine with:
+### Prometheus Metrics
 
-- ✅ Job polling and execution
-- ✅ Policy enforcement with Ed25519 signatures
-- ✅ Binary/script/file operation handlers
-- ✅ Result caching and retry mechanism
-- ✅ Artifact management with chunked uploads
+Metrics are exposed on `http://localhost:9090/metrics` (localhost only).
 
-## Future Phases
+**Key metrics:**
+- `jtnt_agent_up` - Agent running status
+- `jtnt_agent_heartbeat_total` - Heartbeat attempts
+- `jtnt_agent_jobs_executed_total` - Job execution count
+- `jtnt_agent_cert_expiration_timestamp` - Certificate expiration time
+- `jtnt_agent_system_cpu_usage_percent` - CPU usage
 
-Phase 3 will add:
-- Self-update mechanism
-- Advanced system metrics and monitoring
-- Windows service installation
-- Enhanced logging and audit trails
+See [Operations Guide](docs/OPERATIONS.md) for complete metrics documentation.
+
+### Health Checks
+
+Health endpoint on `http://localhost:9091/health` returns:
+- Enrollment status
+- Certificate validity
+- Hub connectivity
+- Policy status
+- Disk space
+- Last job status
+
+**Example:**
+```bash
+curl http://localhost:9091/health
+
+{
+  "status": "healthy",
+  "checks": {
+    "enrolled": {"status": "pass"},
+    "certificates": {"status": "pass", "expires_in_days": 365},
+    "hub_connection": {"status": "pass"}
+  },
+  "version": "3.0.0"
+}
+```
+
+### Certificate Management
+
+**Auto-renewal:** Certificates automatically renew 30 days before expiration.
+
+```bash
+# Check certificate status
+jtnt-agent cert check
+
+# Manually renew
+jtnt-agent cert renew
+
+# Rollback if renewal fails
+jtnt-agent cert rollback
+```
+
+### Self-Update
+
+**Automatic updates** checked daily at 04:00. Critical updates apply automatically.
+
+```bash
+# Check for updates
+jtnt-agent update check
+
+# Apply update
+jtnt-agent update apply
+
+# Rollback if needed
+jtnt-agent update rollback
+```
+
+All updates verified with:
+- SHA256 checksum
+- Ed25519 signature
+
+### Audit Logs
+
+Audit trail with cryptographic signatures at `/var/lib/jtnt-agent/audit/`.
+
+Events logged:
+- Job executions
+- Policy changes
+- Certificate rotations
+- Update applications
+- Policy violations
+
+See [Operations Guide](docs/OPERATIONS.md) for complete operational procedures.
+
+## Phase 3 Complete
+
+This release includes advanced reliability and observability features:
+
+- ✅ Prometheus metrics and health checks
+- ✅ Automatic certificate renewal
+- ✅ Signed self-update mechanism
+- ✅ Graceful shutdown with job awareness
+- ✅ Audit logging with Ed25519 signatures
+- ✅ Circuit breaker pattern for hub connectivity
+- ✅ 72-hour network outage resilience
+
+## Documentation
+
+- **[Policy Reference](docs/POLICY.md)** - Complete policy system documentation
+- **[Operations Guide](docs/OPERATIONS.md)** - Monitoring, troubleshooting, and maintenance
+- **[Phase 2 Summary](docs/PHASE2_SUMMARY.md)** - Job execution implementation details
 
 ## License
 
@@ -540,7 +637,8 @@ For issues and questions:
 
 ## Version
 
-Current version: **2.0.0** (Phase 2 Complete)
+Current version: **3.0.0** (Phase 3 Complete)
 
 - Phase 1: Enrollment, mTLS, Heartbeat
 - Phase 2: Job Execution, Policy Enforcement, Artifact Management
+- Phase 3: Metrics, Health Checks, Auto-Updates, Audit Logs

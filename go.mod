@@ -3,6 +3,7 @@ module github.com/tshojoshua/jtnt-agent
 go 1.23
 
 require (
+	github.com/prometheus/client_golang v1.20.5
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/sys v0.28.0
 )
