@@ -68,7 +68,7 @@ func enrollCmd() error {
 	fs := flag.NewFlagSet("enroll", flag.ExitOnError)
 	token := fs.String("token", "", "Enrollment token")
 	hub := fs.String("hub", "", "Hub URL")
-	
+
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -134,21 +134,17 @@ func statusCmd() error {
 	fmt.Printf("  Hub URL:          %s\n", cfg.HubURL)
 	fmt.Printf("  Heartbeat:        %ds\n", cfg.HeartbeatSec)
 	fmt.Printf("  Poll Interval:    %ds\n", cfg.PollIntervalSec)
-	fmt.Printf("  Policy Version:   %d\n", cfg.PolicyVersion)
 	fmt.Printf("  Config File:      %s\n", configPath)
-	fmt.Printf("  Cert Path:        %s\n", cfg.CertPath)
-
-	// Check if certificates exist
-	if _, err := os.Stat(cfg.CertPath); os.IsNotExist(err) {
-		fmt.Println()
-		fmt.Println("⚠ Warning: Client certificate not found")
-	}
-	if _, err := os.Stat(cfg.KeyPath); os.IsNotExist(err) {
-		fmt.Println()
-		fmt.Println("⚠ Warning: Client key not found")
-	}
+	fmt.Printf("  Token:            %s\n", maskToken(cfg.AgentToken))
 
 	return nil
+}
+
+func maskToken(token string) string {
+	if len(token) <= 8 {
+		return "****"
+	}
+	return token[:4] + "****" + token[len(token)-4:]
 }
 
 func versionCmd() {

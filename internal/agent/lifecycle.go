@@ -39,10 +39,9 @@ func (a *Agent) Reload() error {
 // Status returns the current agent status
 func (a *Agent) Status() map[string]interface{} {
 	return map[string]interface{}{
-		"agent_id":         a.config.AgentID,
-		"hub_url":          a.config.HubURL,
-		"heartbeat_sec":    a.config.HeartbeatSec,
-		"poll_interval":    a.config.PollIntervalSec,
-		"policy_version":   a.config.PolicyVersion,
+		"agent_id":      a.config.AgentID,
+		"hub_url":       a.config.HubURL,
+		"heartbeat_sec": a.config.HeartbeatSec,
+		"poll_interval": a.config.PollIntervalSec,
 	}
 }

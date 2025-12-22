@@ -77,7 +77,7 @@ GOOS=linux GOARCH=$GO_ARCH CGO_ENABLED=0 go build \
     -o "$BIN_DIR/jtnt-agentd" \
     -ldflags "$LDFLAGS" \
     -trimpath \
-    ./cmd/agentd
+    ./cmd/agentd/main.go
 
 success "  jtnt-agentd built"
 
@@ -87,7 +87,7 @@ GOOS=linux GOARCH=$GO_ARCH CGO_ENABLED=0 go build \
     -o "$BIN_DIR/jtnt-agent" \
     -ldflags "$LDFLAGS" \
     -trimpath \
-    ./cmd/jtnt-agent
+    ./cmd/jtnt-agent/main.go
 
 success "  jtnt-agent built"
 

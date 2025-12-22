@@ -9,13 +9,10 @@ import (
 // Config holds agent configuration
 type Config struct {
 	AgentID         string `json:"agent_id"`
+	AgentToken      string `json:"agent_token"`
 	HubURL          string `json:"hub_url"`
 	PollIntervalSec int    `json:"poll_interval_sec"`
 	HeartbeatSec    int    `json:"heartbeat_sec"`
-	CertPath        string `json:"cert_path"`
-	KeyPath         string `json:"key_path"`
-	CABundlePath    string `json:"ca_bundle_path"`
-	PolicyVersion   int    `json:"policy_version"`
 }
 
 // Load reads configuration from file
@@ -59,8 +56,8 @@ func (c *Config) Validate() error {
 	if c.HubURL == "" {
 		return fmt.Errorf("hub_url is required")
 	}
-	if c.CertPath == "" || c.KeyPath == "" || c.CABundlePath == "" {
-		return fmt.Errorf("certificate paths are required")
+	if c.AgentToken == "" {
+		return fmt.Errorf("agent_token is required")
 	}
 	return nil
 }

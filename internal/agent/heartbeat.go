@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tshojoshua/jtnt-agent/internal/sysinfo"
-	"github.com/tshojoshua/jtnt-agent/internal/transport"
 	"github.com/tshojoshua/jtnt-agent/pkg/api"
 )
 
@@ -21,6 +19,13 @@ func (a *Agent) sendHeartbeat(ctx context.Context) error {
 	sysInfo, err := a.sysinfo.Collect()
 	if err != nil {
 		return fmt.Errorf("failed to collect system info: %w", err)
+	}
+
+	// Log warning if running in limited environment (e.g., container)
+	if sysInfo.OS == "unknown" {
+		a.logger.Warn("heartbeat", map[string]interface{}{
+			"message": "limited system info available (possibly running in container)",
+		})
 	}
 
 	// Create heartbeat request
@@ -49,9 +54,9 @@ func (a *Agent) sendHeartbeat(ctx context.Context) error {
 	// Update heartbeat interval if changed
 	if resp.NextHeartbeatSec > 0 && resp.NextHeartbeatSec != a.config.HeartbeatSec {
 		a.logger.Info("heartbeat", map[string]interface{}{
-			"message":             "heartbeat interval updated",
-			"old_interval":        a.config.HeartbeatSec,
-			"new_interval":        resp.NextHeartbeatSec,
+			"message":      "heartbeat interval updated",
+			"old_interval": a.config.HeartbeatSec,
+			"new_interval": resp.NextHeartbeatSec,
 		})
 		a.config.HeartbeatSec = resp.NextHeartbeatSec
 	}
@@ -63,12 +68,22 @@ func (a *Agent) sendHeartbeat(ctx context.Context) error {
 func (a *Agent) heartbeatLoop() {
 	defer a.wg.Done()
 
-	ticker := time.NewTicker(time.Duration(a.config.HeartbeatSec) * time.Second)
+	// Validate heartbeat interval and set default if invalid
+	heartbeatSec := a.config.HeartbeatSec
+	if heartbeatSec <= 0 {
+		heartbeatSec = 60 // Default to 60 seconds
+		a.logger.Warn("heartbeat", map[string]interface{}{
+			"message": "invalid heartbeat interval, using default",
+			"default": heartbeatSec,
+		})
+	}
+
+	ticker := time.NewTicker(time.Duration(heartbeatSec) * time.Second)
 	defer ticker.Stop()
 
 	a.logger.Info("heartbeat", map[string]interface{}{
 		"message":  "heartbeat loop started",
-		"interval": a.config.HeartbeatSec,
+		"interval": heartbeatSec,
 	})
 
 	for {
@@ -81,7 +96,7 @@ func (a *Agent) heartbeatLoop() {
 
 		case <-ticker.C:
 			start := time.Now()
-			
+
 			if err := a.sendHeartbeat(a.ctx); err != nil {
 				a.logger.Error("heartbeat", map[string]interface{}{
 					"message": "heartbeat failed",
@@ -93,11 +108,9 @@ func (a *Agent) heartbeatLoop() {
 					"duration_ms": time.Since(start).Milliseconds(),
 				})
 			}
-			
+
 			// Update ticker if interval changed
-			if ticker.Reset(time.Duration(a.config.HeartbeatSec) * time.Second) {
-				// Ticker was reset successfully
-			}
+			ticker.Reset(time.Duration(a.config.HeartbeatSec) * time.Second)
 		}
 	}
 }

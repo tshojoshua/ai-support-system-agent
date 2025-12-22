@@ -499,7 +499,113 @@ Audit logs provide tamper-evident trail for:
 
 Each entry is signed, making tampering detectable.
 
-## Best Practices
+## Container Deployments
+
+### Overview
+
+The JTNT agent is designed to work in containerized environments, though some system metrics may be limited depending on container permissions.
+
+### Container Considerations
+
+**System Information Collection:**
+
+- The agent collects system metrics for heartbeats (CPU, memory, disk, etc.)
+- In containers without `/proc` access, some metrics may be unavailable
+- The agent gracefully degrades and continues operating with partial metrics
+- A warning is logged when limited system info is detected
+
+**Typical Container Behavior:**
+
+- Hostname: ✅ Available
+- IP Addresses: ✅ Available
+- OS/Version/Arch: ⚠️ May show "unknown" without `/proc/stat` access
+- CPU/Memory/Disk: ⚠️ May be zero or unavailable without proper access
+- Uptime: ⚠️ May be zero without host access
+
+### Docker Example
+
+```dockerfile
+FROM golang:1.21-alpine AS builder
+WORKDIR /build
+COPY . .
+RUN go build -o jtnt-agentd ./cmd/agentd
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /build/jtnt-agentd /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/jtnt-agentd"]
+```
+
+**Running with proper permissions:**
+
+```bash
+# Basic run (limited metrics)
+docker run -d jtnt-agent
+
+# With host network and /proc access (full metrics)
+docker run -d \
+  --network host \
+  --pid host \
+  -v /proc:/host/proc:ro \
+  -e HOST_PROC=/host/proc \
+  jtnt-agent
+```
+
+### Kubernetes Example
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: jtnt-agent
+spec:
+  selector:
+    matchLabels:
+      app: jtnt-agent
+  template:
+    metadata:
+      labels:
+        app: jtnt-agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: agent
+        image: jtnt-agent:latest
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        env:
+        - name: HOST_PROC
+          value: "/host/proc"
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+```
+
+### Troubleshooting Container Issues
+
+**Symptom**: "failed to get host info: open /proc/stat: no such file or directory"
+
+**Solution**: This is expected in containers without host access. The agent will:
+
+1. Continue operating normally
+2. Log a warning about limited system info
+3. Send heartbeats with partial metrics
+4. Report OS as "unknown" in heartbeats
+
+**To get full metrics**, mount `/proc` from the host (see examples above).
+
+**Symptom**: Health checks failing in container
+
+**Check**:
+
+1. Ensure health endpoint port (9091) is accessible
+2. Verify container has network access to hub
+3. Check enrollment completed successfully
+4. Review container logs for errors
 
 ### Monitoring
 

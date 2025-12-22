@@ -15,16 +15,21 @@ import (
 
 // Agent is the main agent orchestrator
 type Agent struct {
-	config      *config.Config
-	client      *transport.Client
-	store       store.Store
-	sysinfo     *sysinfo.Collector
-	logger      *Logger
-	jobExecutor *jobs.Executor
-	resultCache *ResultCache
-	ctx         context.Context
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
+	config            *config.Config
+	client            *transport.Client
+	store             store.Store
+	sysinfo           *sysinfo.Collector
+	logger            *Logger
+	jobExecutor       *jobs.Executor
+	resultCache       *ResultCache
+	ctx               context.Context
+	cancel            context.CancelFunc
+	wg                sync.WaitGroup
+	mu                sync.RWMutex
+	currentJob        context.Context
+	jobPollingStopped bool
+	metricsServer     *MetricsServer
+	healthServer      *MetricsServer
 }
 
 // New creates a new agent instance
@@ -63,7 +68,10 @@ func New(cfg *config.Config) (*Agent, error) {
 	// TODO: Load policy from hub or local cache if available
 
 	// Create policy enforcer
-	enforcer := policy.NewEnforcer(pol)
+	enforcer, err := policy.NewEnforcer(pol)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create policy enforcer: %w", err)
+	}
 
 	// Load hub's public key for script signature verification
 	// TODO: Load from secure storage or configuration

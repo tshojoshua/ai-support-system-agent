@@ -1,0 +1,97 @@
+# JTNT Agent Phase 1 - Installation Instructions
+
+If you're having download issues, here are 3 ways to get the code:
+
+## Method 1: Download ZIP (Recommended)
+Click the "jtnt-agent-phase1.zip" file above to download all files at once.
+
+Then:
+```bash
+unzip jtnt-agent-phase1.zip
+cd jtnt-agent
+go mod download
+make build
+```
+
+## Method 2: Clone via Git (If you push to GitHub)
+```bash
+git clone <your-repo-url> jtnt-agent
+cd jtnt-agent
+go mod download
+make build
+```
+
+## Method 3: View Individual Files
+Browse the jtnt-agent folder in the file browser and copy/paste each file manually.
+
+Key files:
+- go.mod
+- Makefile
+- cmd/agentd/main.go
+- cmd/jtnt-agent/main.go
+- internal/agent/agent.go
+- internal/agent/heartbeat.go
+- internal/config/config.go
+- internal/config/paths*.go
+- internal/enroll/enroll.go
+- internal/store/store*.go
+- internal/sysinfo/sysinfo.go
+- internal/transport/client.go
+- internal/transport/retry.go
+- pkg/api/types.go
+
+## Build Commands
+
+After you have all files:
+
+```bash
+# Install dependencies
+go mod download
+
+# Build for your platform
+make build
+
+# Test
+./bin/jtnt-agent version
+```
+
+## File Structure Check
+
+You should have this structure:
+```
+jtnt-agent/
+├── go.mod
+├── Makefile
+├── cmd/
+│   ├── agentd/main.go
+│   └── jtnt-agent/main.go
+├── internal/
+│   ├── agent/
+│   ├── config/
+│   ├── enroll/
+│   ├── store/
+│   ├── sysinfo/
+│   └── transport/
+└── pkg/
+    └── api/
+```
+
+Total: 18 Go files + supporting files
+
+## Verify Installation
+
+```bash
+# Should show version
+./bin/jtnt-agent version
+
+# Should show "not enrolled"
+./bin/jtnt-agent status
+```
+
+## Next Steps
+
+1. Generate enrollment token on hub
+2. Enroll: `./bin/jtnt-agent enroll --token <TOKEN> --hub https://hub.jtnt.us`
+3. Run: `sudo ./bin/jtnt-agentd`
+
+For detailed instructions, see README.md and QUICKSTART.md

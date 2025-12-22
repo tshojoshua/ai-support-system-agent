@@ -1,0 +1,62 @@
+name: Build Windows MSI
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches: [ main ]
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'packaging/windows/**'
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'
+
+    - name: Install WiX Toolset
+      run: |
+        choco install wixtoolset -y
+        echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Build Agent Binaries
+      run: |
+        $VERSION = "4.0.0"
+        go build -o bin\jtnt-agent.exe -ldflags "-s -w -X main.Version=$VERSION" .\cmd\jtnt-agent
+        go build -o bin\jtnt-agentd.exe -ldflags "-s -w -X main.Version=$VERSION" .\cmd\agentd
+
+    - name: Build System Tray (if exists)
+      run: |
+        if (Test-Path ".\cmd\jtnt-agent-tray") {
+          go get github.com/getlantern/systray
+          go get github.com/gen2brain/beeep
+          go build -o bin\jtnt-agent-tray.exe -ldflags "-H windowsgui" .\cmd\jtnt-agent-tray
+        }
+      continue-on-error: true
+
+    - name: Build MSI
+      working-directory: packaging/windows
+      run: |
+        .\build.ps1 -Version "4.0.0"
+
+    - name: Upload MSI Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: jtnt-agent-msi
+        path: packaging/windows/output/*.msi
+
+    - name: Create Release (if tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: packaging/windows/output/*.msi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

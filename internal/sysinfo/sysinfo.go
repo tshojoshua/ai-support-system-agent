@@ -22,66 +22,67 @@ func NewCollector() *Collector {
 }
 
 // Collect gathers current system information
+// Returns partial information if some metrics fail (e.g., in containers)
 func (c *Collector) Collect() (*api.SystemInfo, error) {
+	sysInfo := &api.SystemInfo{
+		Timestamp: time.Now(),
+	}
+
+	// Get hostname - this is critical
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get hostname: %w", err)
 	}
+	sysInfo.Hostname = hostname
 
-	// Get OS info
+	// Get OS info - best effort in containers
 	hostInfo, err := host.Info()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host info: %w", err)
+	if err == nil {
+		sysInfo.OS = hostInfo.OS
+		sysInfo.OSVersion = hostInfo.PlatformVersion
+		sysInfo.Arch = hostInfo.KernelArch
+		sysInfo.Uptime = int64(hostInfo.Uptime)
+	} else {
+		// In containers, we may not have access to /proc/stat
+		// Provide minimal fallback info
+		sysInfo.OS = "unknown"
+		sysInfo.OSVersion = "unknown"
+		sysInfo.Arch = "unknown"
+		sysInfo.Uptime = 0
 	}
 
-	// Get CPU info
+	// Get CPU info - best effort
 	cpuCount, err := cpu.Counts(true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CPU count: %w", err)
+	if err == nil {
+		sysInfo.CPUCount = cpuCount
 	}
 
 	cpuPercent, err := cpu.Percent(time.Second, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CPU usage: %w", err)
-	}
-	var cpuUsage float64
-	if len(cpuPercent) > 0 {
-		cpuUsage = cpuPercent[0]
+	if err == nil && len(cpuPercent) > 0 {
+		sysInfo.CPUUsage = cpuPercent[0]
 	}
 
-	// Get memory info
+	// Get memory info - best effort
 	memInfo, err := mem.VirtualMemory()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get memory info: %w", err)
+	if err == nil {
+		sysInfo.MemTotal = memInfo.Total
+		sysInfo.MemUsed = memInfo.Used
 	}
 
-	// Get disk info
+	// Get disk info - best effort
 	diskInfo, err := disk.Usage("/")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get disk info: %w", err)
+	if err == nil {
+		sysInfo.DiskTotal = diskInfo.Total
+		sysInfo.DiskUsed = diskInfo.Used
 	}
 
-	// Get IP addresses
+	// Get IP addresses - best effort
 	ipAddrs, err := c.getIPAddresses()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get IP addresses: %w", err)
+	if err == nil {
+		sysInfo.IPAddresses = ipAddrs
 	}
 
-	return &api.SystemInfo{
-		Hostname:    hostname,
-		OS:          hostInfo.OS,
-		OSVersion:   hostInfo.PlatformVersion,
-		Arch:        hostInfo.KernelArch,
-		Uptime:      int64(hostInfo.Uptime),
-		CPUCount:    cpuCount,
-		CPUUsage:    cpuUsage,
-		MemTotal:    memInfo.Total,
-		MemUsed:     memInfo.Used,
-		DiskTotal:   diskInfo.Total,
-		DiskUsed:    diskInfo.Used,
-		IPAddresses: ipAddrs,
-		Timestamp:   time.Now(),
-	}, nil
+	return sysInfo, nil
 }
 
 func (c *Collector) getIPAddresses() ([]string, error) {

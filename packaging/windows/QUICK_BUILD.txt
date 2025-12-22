@@ -1,0 +1,149 @@
+# WINDOWS MSI BUILD - QUICK REFERENCE CARD
+# Print this or keep it handy when building on Windows machine
+
+## Prerequisites Check
+```powershell
+# Verify Windows version
+Get-ComputerInfo | Select WindowsVersion, OsArchitecture
+# Need: Version 1809+ and AMD64
+
+# Verify tools installed
+git --version
+go version
+candle.exe -help
+light.exe -help
+```
+
+## Install Tools (if missing)
+```powershell
+# Install Chocolatey
+Set-ExecutionPolicy Bypass -Scope Process -Force
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install build tools
+choco install -y git golang wix311
+```
+
+## Build MSI (Standard)
+```powershell
+# 1. Get source code
+cd C:\
+git clone https://github.com/YOUR_ORG/ai-support-system-agent.git jtnt-agent
+cd jtnt-agent
+
+# 2. Build MSI
+cd packaging\windows
+.\build.ps1 -Version "4.0.0"
+
+# 3. Output location
+ls output\JTNT-Agent-4.0.0-x64.msi
+```
+
+## Test Installation
+```powershell
+# Get test token from Hub UI
+$TOKEN = "etok_test_xxxxx"
+
+# Silent install
+msiexec /i output\JTNT-Agent-4.0.0-x64.msi /qn `
+  /l*v test-install.log `
+  ENROLLMENT_TOKEN=$TOKEN `
+  HUB_URL="https://hub.jtnt.us"
+
+# Wait 30 seconds
+Start-Sleep -Seconds 30
+
+# Check service
+Get-Service JTNTAgent
+# Expected: Status = Running
+
+# Check agent status
+& "C:\Program Files\JTNT\Agent\jtnt-agent.exe" status
+# Expected: Shows Agent ID and enrollment
+
+# Check logs
+Get-Content "C:\ProgramData\JTNT\Agent\logs\agent.log" -Tail 50
+# Look for: "Successfully enrolled", NO errors
+```
+
+## Create Deployment Package
+```powershell
+# Create deployment folder
+mkdir C:\deployment\client-dec21
+
+# Copy files
+copy packaging\windows\output\JTNT-Agent-4.0.0-x64.msi C:\deployment\client-dec21\
+copy packaging\windows\install.bat C:\deployment\client-dec21\
+copy packaging\windows\install-silent.bat C:\deployment\client-dec21\
+copy packaging\windows\uninstall.bat C:\deployment\client-dec21\
+
+# Create ZIP
+Compress-Archive -Path C:\deployment\client-dec21\* `
+  -DestinationPath C:\deployment\JTNT-Agent-Windows-4.0.0.zip
+
+# Generate checksum
+Get-FileHash C:\deployment\JTNT-Agent-Windows-4.0.0.zip -Algorithm SHA256 | `
+  Select-Object -ExpandProperty Hash | `
+  Out-File C:\deployment\JTNT-Agent-Windows-4.0.0.zip.sha256
+
+# Display results
+ls C:\deployment\JTNT-Agent-Windows-4.0.0.*
+```
+
+## Success Criteria
+- [ ] MSI file is 15-25 MB
+- [ ] Test install succeeds
+- [ ] Service starts (Get-Service JTNTAgent shows "Running")
+- [ ] Agent enrolls (check Hub dashboard)
+- [ ] Heartbeat active (check agent.log)
+- [ ] Deployment package created
+
+## Troubleshooting
+
+### Build Fails
+```powershell
+# Clear Go cache
+go clean -modcache
+go mod download
+
+# Verify binaries exist
+ls C:\jtnt-agent\bin\*.exe
+
+# Rebuild MSI
+cd C:\jtnt-agent\packaging\windows
+.\build.ps1 -Version "4.0.0"
+```
+
+### Service Won't Start
+```powershell
+# Check event log
+Get-EventLog -LogName Application -Source "JTNT Agent" -Newest 20
+
+# Try manual start
+net start JTNTAgent
+
+# Check logs
+Get-Content C:\ProgramData\JTNT\Agent\logs\agent.log
+```
+
+### Enrollment Fails (404)
+Hub API endpoints not deployed yet (GO-NOGO blocker #2).
+Wait for Hub backend team to deploy agent API endpoints.
+
+## Timeline
+- Setup: 30 min
+- Build: 1 hour
+- Test: 1 hour
+- Package: 30 min
+**Total: 3 hours**
+
+## Contact
+Issues: team@jtnt.us
+Full Guide: packaging/windows/BUILD_GUIDE.md
+
+## Expected Results
+✅ JTNT-Agent-4.0.0-x64.msi (15-25 MB)
+✅ Service "JTNTAgent" running
+✅ Agent in Hub dashboard
+✅ Heartbeat active
+✅ Deployment ZIP ready

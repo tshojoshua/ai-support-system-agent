@@ -3,8 +3,6 @@ package enroll
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,8 +17,8 @@ import (
 )
 
 const (
-	enrollPath = "/api/v1/agent/enroll"
-	agentVersion = "1.0.0"
+	enrollPath    = "/api/v1/agents/enroll"
+	agentVersion  = "1.0.0"
 	enrollTimeout = 30 * time.Second
 )
 
@@ -54,12 +52,14 @@ func (e *Enroller) Enroll(ctx context.Context, token string) (*config.Config, er
 
 	// Create enrollment request
 	req := api.EnrollRequest{
-		Token:     token,
-		Hostname:  hostname,
-		OS:        runtime.GOOS,
-		Arch:      runtime.GOARCH,
-		Version:   agentVersion,
-		PublicKey: keypair.PublicKeyBase64(),
+		Token:        token,
+		Hostname:     hostname,
+		OS:           runtime.GOOS,
+		Arch:         runtime.GOARCH,
+		Version:      agentVersion,
+		AgentVersion: agentVersion,
+		Capabilities: []string{"ping", "execute", "shell", "file_transfer"},
+		PublicKey:    keypair.PublicKeyBase64(),
 	}
 
 	// Send enrollment request
@@ -68,26 +68,18 @@ func (e *Enroller) Enroll(ctx context.Context, token string) (*config.Config, er
 		return nil, fmt.Errorf("enrollment request failed: %w", err)
 	}
 
-	// Validate certificate chain
-	if err := e.validateCertificates(resp); err != nil {
-		return nil, fmt.Errorf("certificate validation failed: %w", err)
-	}
-
-	// Save certificates
-	if err := e.saveCertificates(resp); err != nil {
-		return nil, fmt.Errorf("failed to save certificates: %w", err)
+	// Save agent token
+	if err := e.saveAgentToken(resp.AgentToken); err != nil {
+		return nil, fmt.Errorf("failed to save agent token: %w", err)
 	}
 
 	// Create configuration
 	cfg := &config.Config{
 		AgentID:         resp.AgentID,
+		AgentToken:      resp.AgentToken,
 		HubURL:          resp.HubBaseURL,
 		PollIntervalSec: resp.PollIntervalSec,
 		HeartbeatSec:    resp.HeartbeatSec,
-		CertPath:        config.GetCertPath(),
-		KeyPath:         config.GetKeyPath(),
-		CABundlePath:    config.GetCABundlePath(),
-		PolicyVersion:   resp.Policy.Version,
 	}
 
 	// Save configuration
@@ -148,61 +140,10 @@ func (e *Enroller) sendEnrollRequest(ctx context.Context, req api.EnrollRequest)
 	return &resp, nil
 }
 
-func (e *Enroller) validateCertificates(resp *api.EnrollResponse) error {
-	// Parse client certificate
-	certPEM := []byte(resp.ClientCertPEM)
-	keyPEM := []byte(resp.ClientKeyPEM)
-	
-	cert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return fmt.Errorf("invalid client certificate: %w", err)
+func (e *Enroller) saveAgentToken(token string) error {
+	// Save agent token to secure store
+	if err := e.store.Save("agent.token", []byte(token)); err != nil {
+		return fmt.Errorf("failed to save agent token: %w", err)
 	}
-
-	// Parse CA bundle
-	caPool := x509.NewCertPool()
-	if !caPool.AppendCertsFromPEM([]byte(resp.CABundlePEM)) {
-		return fmt.Errorf("failed to parse CA bundle")
-	}
-
-	// Parse and verify client certificate
-	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return fmt.Errorf("failed to parse certificate: %w", err)
-	}
-
-	// Verify certificate chain
-	opts := x509.VerifyOptions{
-		Roots:     caPool,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-	}
-
-	if _, err := x509Cert.Verify(opts); err != nil {
-		return fmt.Errorf("certificate verification failed: %w", err)
-	}
-
-	return nil
-}
-
-func (e *Enroller) saveCertificates(resp *api.EnrollResponse) error {
-	certsDir := config.GetCertsDir()
-	if err := os.MkdirAll(certsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create certs directory: %w", err)
-	}
-
-	// Save client certificate
-	if err := e.store.Save("client.crt", []byte(resp.ClientCertPEM)); err != nil {
-		return fmt.Errorf("failed to save client cert: %w", err)
-	}
-
-	// Save client key
-	if err := e.store.Save("client.key", []byte(resp.ClientKeyPEM)); err != nil {
-		return fmt.Errorf("failed to save client key: %w", err)
-	}
-
-	// Save CA bundle
-	if err := e.store.Save("ca-bundle.crt", []byte(resp.CABundlePEM)); err != nil {
-		return fmt.Errorf("failed to save CA bundle: %w", err)
-	}
-
 	return nil
 }

@@ -4,59 +4,36 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/tshojoshua/jtnt-agent/internal/config"
 )
 
 const (
-	defaultTimeout = 30 * time.Second
-	maxIdleConns   = 10
+	defaultTimeout  = 30 * time.Second
+	maxIdleConns    = 10
 	idleConnTimeout = 90 * time.Second
 )
 
-// Client is an mTLS HTTP client
+// Client is an HTTP client with bearer token authentication
 type Client struct {
 	httpClient  *http.Client
 	baseURL     string
+	agentToken  string
 	retryConfig *RetryConfig
 }
 
-// NewClient creates a new mTLS client
+// NewClient creates a new HTTP client with bearer token authentication
 func NewClient(cfg *config.Config) (*Client, error) {
-	// Load client certificate
-	cert, err := tls.LoadX509KeyPair(cfg.CertPath, cfg.KeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load client cert: %w", err)
-	}
-
-	// Load CA bundle
-	caCert, err := os.ReadFile(cfg.CABundlePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CA bundle: %w", err)
-	}
-
-	caPool := x509.NewCertPool()
-	if !caPool.AppendCertsFromPEM(caCert) {
-		return nil, fmt.Errorf("failed to parse CA bundle")
-	}
-
-	// Create TLS config
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caPool,
-		MinVersion:   tls.VersionTLS12,
-	}
-
-	// Create HTTP transport
+	// Create HTTP transport with standard TLS
 	transport := &http.Transport{
-		TLSClientConfig:     tlsConfig,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 		MaxIdleConns:        maxIdleConns,
 		IdleConnTimeout:     idleConnTimeout,
 		DisableCompression:  false,
@@ -73,6 +50,7 @@ func NewClient(cfg *config.Config) (*Client, error) {
 	return &Client{
 		httpClient:  httpClient,
 		baseURL:     cfg.HubURL,
+		agentToken:  cfg.AgentToken,
 		retryConfig: DefaultRetryConfig(),
 	}, nil
 }
@@ -135,6 +113,9 @@ func (c *Client) doPost(ctx context.Context, path string, body interface{}) ([]b
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.agentToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.agentToken)
+	}
 
 	// Send request
 	resp, err := c.httpClient.Do(req)
@@ -175,6 +156,9 @@ func (c *Client) doGet(ctx context.Context, path string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if c.agentToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.agentToken)
 	}
 
 	// Send request

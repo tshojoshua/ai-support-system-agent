@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/tshojoshua/jtnt-agent/pkg/api"
 )
 
 const (
@@ -91,15 +89,15 @@ func (a *Agent) processNextJob(ctx context.Context) error {
 
 	a.logger.Info("job-execute", map[string]interface{}{
 		"message": "job received",
-		"job_id":  job.ID,
+		"job_id":  job.JobID,
 		"type":    job.Type,
 	})
 
 	// Execute job with timeout context
 	execCtx := ctx
-	if job.Timeout > 0 {
+	if job.TimeoutSec > 0 {
 		var cancel context.CancelFunc
-		execCtx, cancel = context.WithTimeout(ctx, time.Duration(job.Timeout)*time.Second)
+		execCtx, cancel = context.WithTimeout(ctx, time.Duration(job.TimeoutSec)*time.Second)
 		defer cancel()
 	}
 
@@ -107,31 +105,31 @@ func (a *Agent) processNextJob(ctx context.Context) error {
 
 	a.logger.Info("job-execute", map[string]interface{}{
 		"message":    "job completed",
-		"job_id":     job.ID,
+		"job_id":     job.JobID,
 		"status":     result.Status,
 		"exit_code":  result.ExitCode,
 	})
 
 	// Report result to hub
-	if err := a.jobExecutor.ReportResult(ctx, job.ID, result); err != nil {
+	if err := a.jobExecutor.ReportResult(ctx, job.JobID, result); err != nil {
 		a.logger.Error("job-execute", map[string]interface{}{
 			"message": "failed to report job result",
-			"job_id":  job.ID,
+			"job_id":  job.JobID,
 			"error":   err.Error(),
 		})
 
 		// Cache result for later upload
 		if a.resultCache != nil {
-			if cacheErr := a.resultCache.Store(job.ID, result); cacheErr != nil {
+			if cacheErr := a.resultCache.Store(job.JobID, result); cacheErr != nil {
 				a.logger.Error("job-execute", map[string]interface{}{
 					"message": "failed to cache job result",
-					"job_id":  job.ID,
+					"job_id":  job.JobID,
 					"error":   cacheErr.Error(),
 				})
 			} else {
 				a.logger.Info("job-execute", map[string]interface{}{
 					"message": "cached job result for later upload",
-					"job_id":  job.ID,
+					"job_id":  job.JobID,
 				})
 			}
 		}
@@ -141,7 +139,7 @@ func (a *Agent) processNextJob(ctx context.Context) error {
 
 	a.logger.Info("job-execute", map[string]interface{}{
 		"message": "job result reported successfully",
-		"job_id":  job.ID,
+		"job_id":  job.JobID,
 	})
 
 	return nil
